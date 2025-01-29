@@ -2,11 +2,11 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Universal Tetris</title>
+    <title>Mobile Tetris</title>
     <style>
         body {
             margin: 0;
-            padding: 20px;
+            padding: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -15,21 +15,26 @@
             font-family: Arial, sans-serif;
             touch-action: none;
             overflow: hidden;
+            height: 100vh;
         }
         canvas {
             border: 2px solid white;
             touch-action: none;
+            margin-top: 20px;
         }
         #controls {
-            margin-top: 20px;
+            position: fixed;
+            bottom: 30px;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
+            width: 90%;
+            max-width: 400px;
             touch-action: manipulation;
         }
         .control-btn {
             padding: 15px;
-            font-size: 24px;
+            font-size: 20px;
             background: rgba(255, 255, 255, 0.1);
             color: white;
             border: 2px solid white;
@@ -37,14 +42,15 @@
             touch-action: manipulation;
         }
         #score {
-            margin: 10px 0;
+            margin: 15px 0;
             font-size: 24px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <canvas id="tetris"></canvas>
     <div id="score">Score: 0</div>
+    <canvas id="tetris"></canvas>
     <div id="controls">
         <button class="control-btn" id="left">←</button>
         <button class="control-btn" id="rotate">↻</button>
@@ -55,19 +61,15 @@
     <script>
         const canvas = document.getElementById('tetris');
         const ctx = canvas.getContext('2d');
-        let COLS = 10;
-        let ROWS = 20;
-        let BLOCK_SIZE = 30;
         
-        // Dynamic canvas sizing
-        function resizeCanvas() {
-            const maxWidth = Math.min(window.innerWidth - 40, 400);
-            BLOCK_SIZE = Math.floor(maxWidth / COLS);
-            canvas.width = COLS * BLOCK_SIZE;
-            canvas.height = ROWS * BLOCK_SIZE;
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+        // Mobile-optimized dimensions
+        const COLS = 10;
+        const ROWS = 20;
+        const BLOCK_SIZE = Math.min(window.innerWidth * 0.8 / COLS, 30);
+        
+        // Set canvas size
+        canvas.width = COLS * BLOCK_SIZE;
+        canvas.height = ROWS * BLOCK_SIZE;
 
         let board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
         let score = 0;
@@ -209,30 +211,33 @@
         }
 
         // Mobile controls
-        document.getElementById('left').addEventListener('click', moveLeft);
-        document.getElementById('right').addEventListener('click', moveRight);
-        document.getElementById('rotate').addEventListener('click', rotate);
-        document.getElementById('down').addEventListener('click', softDrop);
+        document.getElementById('left').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            moveLeft();
+        });
 
-        // Keyboard controls
+        document.getElementById('right').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            moveRight();
+        });
+
+        document.getElementById('rotate').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            rotate();
+        });
+
+        document.getElementById('down').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            softDrop();
+        });
+
+        // Keyboard controls (for desktop)
         document.addEventListener('keydown', (e) => {
             switch(e.key) {
-                case 'ArrowLeft':
-                    e.preventDefault();
-                    moveLeft();
-                    break;
-                case 'ArrowRight':
-                    e.preventDefault();
-                    moveRight();
-                    break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    rotate();
-                    break;
-                case 'ArrowDown':
-                    e.preventDefault();
-                    softDrop();
-                    break;
+                case 'ArrowLeft': moveLeft(); break;
+                case 'ArrowRight': moveRight(); break;
+                case 'ArrowUp': rotate(); break;
+                case 'ArrowDown': softDrop(); break;
             }
         });
 
