@@ -2,9 +2,8 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Perfect Tetris</title>
+    <title>Classic Tetris</title>
     <style>
-        /* [Keep all previous CSS styles unchanged] */
         * {
             margin: 0;
             padding: 0;
@@ -78,7 +77,6 @@
         let dropInterval = NORMAL_DROP_INTERVAL;
         let lastDrop = Date.now();
         let lockTimer = null;
-        let isSoftDropping = false;
         
         // Canvas Setup
         const canvas = document.getElementById('tetris');
@@ -86,9 +84,123 @@
         let board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
         let score = 0;
 
-        // [Keep all previous game setup functions unchanged until controls section]
+        // Dynamic Scaling
+        function resizeCanvas() {
+            const aspectRatio = COLS / ROWS;
+            const maxWidth = window.innerWidth * 0.95;
+            const maxHeight = window.innerHeight * 0.6;
+            
+            canvas.width = Math.min(maxWidth, maxHeight * aspectRatio);
+            canvas.height = canvas.width / aspectRatio;
+            
+            BLOCK_SIZE = canvas.width / COLS;
+        }
+        window.addEventListener('load', resizeCanvas);
+        window.addEventListener('resize', resizeCanvas);
 
-        // Modified Controls
+        // Game Pieces
+        const SHAPES = [
+            [[1,1,1,1]], // I
+            [[1,1,1],[0,1,0]], // T
+            [[1,1,1],[1,0,0]], // L
+            [[1,1,1],[0,0,1]], // J
+            [[1,1],[1,1]], // O
+            [[1,1,0],[0,1,1]], // S
+            [[0,1,1],[1,1,0]]  // Z
+        ];
+
+        const COLORS = ['#00f0f0', '#f0a000', '#0000f0', '#f0f000', '#a0a0a0', '#00f000', '#f00000'];
+
+        let currentPiece = null;
+        let currentPieceX = 0;
+        let currentPieceY = 0;
+        let currentColor = null;
+
+        // Game Functions
+        function createPiece() {
+            const idx = Math.floor(Math.random() * SHAPES.length);
+            currentPiece = SHAPES[idx];
+            currentPieceX = Math.floor(COLS/2) - Math.floor(currentPiece[0].length/2);
+            currentPieceY = 0;
+            return COLORS[idx];
+        }
+
+        function drawBoard() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    if (board[y][x]) {
+                        ctx.fillStyle = board[y][x];
+                        ctx.fillRect(
+                            x * BLOCK_SIZE,
+                            y * BLOCK_SIZE,
+                            BLOCK_SIZE-1,
+                            BLOCK_SIZE-1
+                        );
+                    }
+                }
+            }
+        }
+
+        function drawPiece(color) {
+            ctx.fillStyle = color;
+            for (let y = 0; y < currentPiece.length; y++) {
+                for (let x = 0; x < currentPiece[y].length; x++) {
+                    if (currentPiece[y][x]) {
+                        ctx.fillRect(
+                            (currentPieceX + x) * BLOCK_SIZE,
+                            (currentPieceY + y) * BLOCK_SIZE,
+                            BLOCK_SIZE-1,
+                            BLOCK_SIZE-1
+                        );
+                    }
+                }
+            }
+        }
+
+        function collision() {
+            for (let y = 0; y < currentPiece.length; y++) {
+                for (let x = 0; x < currentPiece[y].length; x++) {
+                    if (currentPiece[y][x]) {
+                        const newX = currentPieceX + x;
+                        const newY = currentPieceY + y;
+                        if (newX < 0 || newX >= COLS || newY >= ROWS) return true;
+                        if (newY >= 0 && board[newY][newX]) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function merge() {
+            for (let y = 0; y < currentPiece.length; y++) {
+                for (let x = 0; x < currentPiece[y].length; x++) {
+                    if (currentPiece[y][x]) {
+                        board[currentPieceY + y][currentPieceX + x] = currentColor;
+                    }
+                }
+            }
+        }
+
+        function clearLines() {
+            let linesCleared = 0;
+            for (let y = ROWS - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell !== 0)) {
+                    board.splice(y, 1);
+                    board.unshift(Array(COLS).fill(0));
+                    linesCleared++;
+                    y++;
+                }
+            }
+            if (linesCleared) {
+                score += linesCleared * 100;
+                document.getElementById('score').textContent = `Score: ${score}`;
+            }
+        }
+
+        // Controls
         function handleMove() {
             if (lockTimer) {
                 clearTimeout(lockTimer);
@@ -118,21 +230,20 @@
             if (collision()) currentPiece = previous;
         }
 
-        function startSoftDrop() {
-            isSoftDropping = true;
-            dropInterval = SOFT_DROP_INTERVAL;
+        function spawnNewPiece() {
+            currentColor = createPiece();
+            if (collision()) {
+                alert('Game Over!');
+                board.forEach(row => row.fill(0));
+                score = 0;
+                document.getElementById('score').textContent = `Score: ${score}`;
+            }
         }
 
-        function stopSoftDrop() {
-            isSoftDropping = false;
-            dropInterval = NORMAL_DROP_INTERVAL;
-        }
-
-        // Modified Game Loop
+        // Game Loop
         function update() {
             const now = Date.now();
             
-            // Handle automatic dropping
             if (now - lastDrop > dropInterval) {
                 currentPieceY++;
                 
@@ -156,16 +267,27 @@
             }
         }
 
-        // Modified Event Listeners
-        const downButton = document.getElementById('down');
-        downButton.addEventListener('touchstart', e => {
-            e.preventDefault();
-            startSoftDrop();
-        });
+        function gameLoop() {
+            update();
+            drawBoard();
+            drawPiece(currentColor);
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event Listeners
+        document.getElementById('left').addEventListener('touchstart', e => { e.preventDefault(); moveLeft(); });
+        document.getElementById('right').addEventListener('touchstart', e => { e.preventDefault(); moveRight(); });
+        document.getElementById('rotate').addEventListener('touchstart', e => { e.preventDefault(); rotate(); });
         
-        downButton.addEventListener('touchend', e => {
+        // Soft drop handling
+        let isSoftDropping = false;
+        document.getElementById('down').addEventListener('touchstart', e => {
             e.preventDefault();
-            stopSoftDrop();
+            dropInterval = SOFT_DROP_INTERVAL;
+        });
+        document.getElementById('down').addEventListener('touchend', e => {
+            e.preventDefault();
+            dropInterval = NORMAL_DROP_INTERVAL;
         });
 
         document.addEventListener('keydown', e => {
@@ -173,15 +295,17 @@
                 case 'ArrowLeft': moveLeft(); break;
                 case 'ArrowRight': moveRight(); break;
                 case 'ArrowUp': rotate(); break;
-                case 'ArrowDown': startSoftDrop(); break;
+                case 'ArrowDown': dropInterval = SOFT_DROP_INTERVAL; break;
             }
         });
 
         document.addEventListener('keyup', e => {
-            if (e.key === 'ArrowDown') stopSoftDrop();
+            if (e.key === 'ArrowDown') dropInterval = NORMAL_DROP_INTERVAL;
         });
 
-        // [Keep rest of the code identical to previous version]
+        // Start Game
+        spawnNewPiece();
+        gameLoop();
     </script>
 </body>
 </html>
