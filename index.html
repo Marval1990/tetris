@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile Tetris</title>
+    <title>Perfect Tetris</title>
     <style>
         * {
             margin: 0;
@@ -69,6 +69,8 @@
         const COLS = 10;
         const ROWS = 20;
         let BLOCK_SIZE = 30;
+        const DROP_INTERVAL = 1000;
+        let lastDrop = Date.now();
         
         // Canvas Setup
         const canvas = document.getElementById('tetris');
@@ -203,19 +205,21 @@
             currentPiece = rotated;
             if (collision()) currentPiece = previous;
         }
-        function softDrop() {
-            currentPieceY++;
+        function hardDrop() {
+            while (!collision()) currentPieceY++;
+            currentPieceY--;
+            merge();
+            clearLines();
+            spawnNewPiece();
+        }
+
+        function spawnNewPiece() {
+            currentColor = createPiece();
             if (collision()) {
-                currentPieceY--;
-                merge();
-                clearLines();
-                currentColor = createPiece();
-                if (collision()) {
-                    alert('Game Over!');
-                    board.forEach(row => row.fill(0));
-                    score = 0;
-                    document.getElementById('score').textContent = `Score: ${score}`;
-                }
+                alert('Game Over!');
+                board.forEach(row => row.fill(0));
+                score = 0;
+                document.getElementById('score').textContent = `Score: ${score}`;
             }
         }
 
@@ -223,27 +227,43 @@
         document.getElementById('left').addEventListener('touchstart', e => { e.preventDefault(); moveLeft(); });
         document.getElementById('right').addEventListener('touchstart', e => { e.preventDefault(); moveRight(); });
         document.getElementById('rotate').addEventListener('touchstart', e => { e.preventDefault(); rotate(); });
-        document.getElementById('down').addEventListener('touchstart', e => { e.preventDefault(); softDrop(); });
+        document.getElementById('down').addEventListener('touchstart', e => { e.preventDefault(); hardDrop(); });
 
         document.addEventListener('keydown', e => {
             switch(e.key) {
                 case 'ArrowLeft': moveLeft(); break;
                 case 'ArrowRight': moveRight(); break;
                 case 'ArrowUp': rotate(); break;
-                case 'ArrowDown': softDrop(); break;
+                case 'ArrowDown': hardDrop(); break;
             }
         });
 
         // Game Loop
+        function update() {
+            const now = Date.now();
+            const delta = now - lastDrop;
+
+            if (delta > DROP_INTERVAL) {
+                currentPieceY++;
+                if (collision()) {
+                    currentPieceY--;
+                    merge();
+                    clearLines();
+                    spawnNewPiece();
+                }
+                lastDrop = Date.now();
+            }
+        }
+
         function gameLoop() {
+            update();
             drawBoard();
             drawPiece(currentColor);
             requestAnimationFrame(gameLoop);
         }
 
         // Start Game
-        currentColor = createPiece();
-        setInterval(() => { currentPieceY++; if (collision()) currentPieceY--; }, 1000);
+        spawnNewPiece();
         gameLoop();
     </script>
 </body>
